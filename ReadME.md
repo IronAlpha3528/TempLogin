@@ -1,0 +1,1 @@
+This is a project that enables you to directly login to a one time use website with a temporary mail.
