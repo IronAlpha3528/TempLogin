@@ -12,28 +12,70 @@ const PORT = 8080;
 let domains = []
 
 async function getDomains() {
-
     try {
-        if (domains.length == 0) {
-            const response = await axios.get(BASE_URL + "domains")
-            domains = response.data["hydra:member"][0].domain
+        if (domains.length === 0) {
+            const response = await axios.get(BASE_URL + "domains");
+            domains = response.data["hydra:member"];
         }
-    
         return domains;
-        
     } catch (error) {
-        console.log(`getDomains Error, ${error}`)
+        console.log(error.response?.data || error.message);
         return [];
     }
 }
 
 
+async function getToken(address, password) {
+    try {
+        const response = await axios.post(BASE_URL + "token", {
+            address,
+            password
+        })
+        console.log(response["data"].token)
+        return response["data"].token
+        
+    } catch (error) {
+        console.log(`Get Token Error, ${error}`)
+        return 
+    }
+}
+
+app.post("/create", async (req, res) => {
+    try {
+        const { name, password="Pass12345" } = req.body || {};
+
+        const domains = await getDomains();
+        const domain = domains[0].domain;
+
+        const username = name || ("user" + Date.now());
+
+        const emailId = `${username}@${domain}`;
+
+        const response = await axios.post(BASE_URL + "accounts", {
+            address: emailId,
+            password: password
+        });
+
+        const token = await getToken(emailId, password);
+        console.log(token)
+
+        res.status(200).json({
+            message: `Account created with token ${token}`,
+            data: response.data
+        });
+
+    } catch (error) {
+        console.log(error.response?.data || error.message);
+        res.status(500).send("Account Creation Error");
+    }
+});
 
 app.use("/listdomains", async (req, res) => {
 
     try {
-        console.log(await getDomains())
-        res.send("Domains listing success").status(200)
+        const domains = await getDomains();
+        console.log(domains[0].domain)
+        res.send(`Domains are ${domains[0].domain}`).status(200)
         
     } catch (error) {
         console.log(`List Domain error, ${error}`)
@@ -41,159 +83,6 @@ app.use("/listdomains", async (req, res) => {
     }
 })
 
-
-app.get("/create", async (req, res) => {
-
-    let increment = 1312;
-
-    try {
-        const {username = `a1b2c3${increment++}`, password = "Hello121World"} = req.body || {}
-        const domains = await getDomains();
-    
-        const emailId = username + "@" + domains
-        // console.log(emailId)
-    
-        const response = await axios.post(BASE_URL + "accounts", {
-            address: emailId,
-            password: password
-        })
-
-        console.log(response)
-
-        if (response) {
-            res.json({
-            message: "Account created",
-            data: response.data,
-            });
-        }
-
-        else {
-            res.json({
-                message: "Account creation error"
-            })
-        }
-        
-    } catch (error) {
-        console.log(`Account Create error, ${error}`)
-        res.send("Account Creation Error").status(404)
-    }
-
-})
-
-
-async function getToken(address, password) {
-    
-    try {
-        const response = await axios.post(BASE_URL + "token", {
-            address,
-            password
-        })
-
-        return response.token
-
-    } catch (error) {
-        console.log(`Get Token Error, ${error}`)
-        return 
-    }
-
-
-
-}
-
-app.get("/token", async (req, res) => {
-
-    let increment = 1312;
-
-    const {address = `a1b2c3${increment++}@deltajohnsons.com`, password = "Hello121World"} = req.body || {}
-
-    try {
-        
-        const token = await getToken(address, password);    
-
-        if (!token) {
-            console.log("Couldn't fetch token from getToken")
-        }
-
-        else {
-            console.log("Token Fetch Successful, " + token)
-            res.send("Token Fetch Success " + token).status(200)
-        }
-
-    } catch (error) {
-        console.log("Token fetching error, ${error}")
-        res.status(404).send("Token Fetching error, ${error}")
-    }
-
-})
-
-
-
 app.listen(PORT, () => {
     console.log(`Listening on port ${PORT}`)
 })
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-// app.post("/token", async (req, res) => {
-//   try {
-//     const response = await axios.post(BASE_URL + "token", {
-//       address: currentEmail,
-//       password: password,
-//     });
-
-//     console.log("Token creation success");
-
-//     res.json({
-//       message: "Token created",
-//       data: response.data,
-//     });
-//   } catch (error) {
-//     console.log(`Error, ${error}`);
-
-//     res.status(500).json({
-//       error: "Token creation failed",
-//     });
-//   }
-// });
-
-
-
-
-// app.use("/status", () => {
-//   console.log("Backend is running");
-// });
-
-
-
-// app.listen(PORT, () => {
-//   console.log(`Server is running on port ${PORT}`);
-// });
