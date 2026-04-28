@@ -11,8 +11,6 @@ const PORT = 8080;
 
 let domains = []
 
-let token = ""
-
 // Returns the available domains
 async function getDomains() {
     try {
@@ -27,6 +25,24 @@ async function getDomains() {
         console.log(error.response?.data || error.message);
         return [];
     }
+}
+
+function authMiddleware(req, res, next) {
+    
+    const authHeader = req.headers.authorization
+
+    if (!authHeader) {
+        res.status(401).send("Missing Authorization Header")
+    }
+
+    const parts = authHeader.split(" ")
+
+    if (parts[0] != "Bearer" || !parts[1]) {
+        res.status(401).send("Invalid token format")
+    }
+
+    req.token = parts[1]
+    next()
 }
 
 
@@ -57,10 +73,10 @@ app.post("/create", async (req, res) => {
 
         const response = await axios.post(BASE_URL + "accounts", {
             address: emailId,
-            password: password
+            password
         });
 
-        token = await getToken(emailId, password);
+        const token = await getToken(emailId, password);
         // console.log(token)
 
         res.status(200).json({
@@ -100,8 +116,11 @@ async function getAccountInfo(token) {
 }
 
 
-app.get("/me", async (req,res) => {
+app.get("/me",authMiddleware, async (req, res) => {
     
+    const token = req.headers.authorization?.split(" ")[1];
+    //Splits the Bearer "Token" into Token from the request headers
+
     try {
         const response = await getAccountInfo(token) 
         // console.log(response)
@@ -129,9 +148,9 @@ async function getMessages(token,page) {
 }
 
 
-app.get("/messages", async (req, res) => {
-    let { page=1 } = req.query
-    let token = req.headers.token
+app.get("/messages", authMiddleware, async (req, res) => {
+    const { page=1 } = req.query
+    const token = req.headers.authorization?.split(" ")[1];
     
     try {
         const response = await getMessages(token, page)
@@ -140,6 +159,40 @@ app.get("/messages", async (req, res) => {
     } catch (error) {
         console.log(`Error in getting messages, ${error}`)
         res.status(400).send(error)
+    }
+})
+
+async function getMessageByID(id, token) {
+    
+    try {
+        const response = await axios.get(BASE_URL + "messages/" + id,
+            {
+                headers: {
+                    Authorization: `Bearer ${token}`
+                }
+            }
+        );
+
+        return json(response.data);
+    } catch (err) {
+        res.status(500).send("Error fetching message");
+    }
+}
+
+app.get("/messages/:id", authMiddleware, async (req, res) => {
+    
+    const id = req.params.id
+
+    const token = req.headers.authorization?.split(" ")[1]
+
+    try {
+
+        const response = await getMessageByID(id, token)
+        console.log(response)
+        res.status(200)
+
+    } catch (error) {
+        console.log(`Error in getting message, ${error}`)
     }
 })
 
